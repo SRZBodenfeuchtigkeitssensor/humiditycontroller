@@ -106,7 +106,7 @@ void displayupdate(){
   display.clearLine(2);
   display.drawString(0,2,datastr);
 
-  ps.toCharArray(datastr,4,0);
+  ps.toCharArray(datastr,5);
   display.drawString(8,2,datastr);
 
   ts.toCharArray(datastr,9,12); 
@@ -114,7 +114,7 @@ void displayupdate(){
   int i = 0;
   while((int)datastr[i]!=0)i++;
   memset(&datastr[i],' ',sizeof(datastr)-(i));
-  String(pbat).toCharArray(&datastr[7],10);             
+  String(pbat).toCharArray(&datastr[9],10);             
   display.drawString(0,4,datastr);
 
   memcpy(varo,leero,sizeof(leero));
@@ -353,6 +353,7 @@ void loop() {
     maxWert = frequenz(fpin);
     Serial.print("Max: ");
     Serial.println(maxWert);
+    displayupdate();
     display.drawString(5,2,"Max");
   }
   if(digitalRead(minpin)){
@@ -360,6 +361,7 @@ void loop() {
     minWert = frequenz(fpin);
     Serial.print("Min: ");
     Serial.println(minWert);
+    displayupdate();
     display.drawString(5,2,"Min");
   } 
 }
