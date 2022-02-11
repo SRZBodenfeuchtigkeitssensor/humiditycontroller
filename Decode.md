@@ -9,8 +9,7 @@ function Decode(fPort, bytes, variables) {
   var retValue = {};
   
   if (fPort == 5) {
-
-    retValue.batt = bytes[0] / 10.0;
+    retValue.batt = bytes[0] / 10.0; 
     if (retValue.batt === 0||retValue.batt>1000) delete retValue.batt; 
 
     if (bytes.length >= 3) {
@@ -25,14 +24,13 @@ function Decode(fPort, bytes, variables) {
     
     if (bytes.length >= 6) { 
       retValue.pressure = ((bytes[5] << 8) | bytes[6]) / 10; 
-      if (retValue.pressure === 0||retValue.pressure > 1000) delete retValue.pressure; 
+      if (retValue.pressure === 0) delete retValue.pressure; 
     }
     
-    if (bytes.length >= 8) { 
-      retValue.frequenz = ((bytes[7] << 8) | bytes[8]); 
-      if (retValue.frequenz === 0||retValue.frequenz>350) delete retValue.frequenz; 
+    if (bytes.length >= 7) { 
+      retValue.relativfrequenz = bytes[7]; 
+      if (retValue.frequenz <= 0||retValue.frequenz>=400) delete retValue.frequenz; 
     }
-
   }
   
   return retValue;
