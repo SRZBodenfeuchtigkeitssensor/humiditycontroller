@@ -7,7 +7,6 @@
 #include <hal/hal.h>
 #include <FlashStorage.h>
 
-
 #define I2C_OLED_ADDR 0x3C     // 0x3C or 0x3D
 #define I2C_BME280_ADDR 0x76   // 0x76 or 0x77
 
@@ -38,14 +37,13 @@ static const u1_t PROGMEM APPEUI[8]={ 0x00, 0x00,0x00, 0x00, 0x00, 0x00, 0x00, 0
 void os_getArtEui (u1_t* buf) { memcpy_P(buf, APPEUI, 8);}
 
 // This should also be in little endian format, see above.
-// static const u1_t PROGMEM DEVEUI[8]={ 0x8b, 0x86, 0x9a, 0xf2, 0x1a, 0xc9, 0x2c, 0x4a };
-static const u1_t PROGMEM DEVEUI[8]={ 0xd9, 0xdb, 0x18, 0xdc, 0x2c, 0x8c, 0x17, 0xdb };
+static const u1_t PROGMEM DEVEUI[8]={0xdb, 0x17, 0x8c, 0x2c, 0xdc, 0x18, 0xdb, 0xd9};
 void os_getDevEui (u1_t* buf) { memcpy_P(buf, DEVEUI, 8);}
 
 // This key should be in big endian format (or, since it is not really a
 // number but a block of memory, endianness does not really apply). In
 // practice, a key taken from ttnctl can be copied as-is.
-static const u1_t PROGMEM APPKEY[16] = { 0x40, 0x55, 0xd4, 0xb9, 0xf4, 0xa1, 0x9a, 0x45, 0x98, 0x3d, 0x60, 0x4b, 0x0e, 0xbb, 0x0f, 0x5f };
+static const u1_t PROGMEM APPKEY[16] = { 0xbb, 0xfd, 0xda, 0x02, 0xa7, 0x5b, 0x9c, 0x07, 0xef, 0xba, 0xf8, 0xd5, 0x32, 0x2b, 0x5e, 0x28};
 void os_getDevKey (u1_t* buf) {  memcpy_P(buf, APPKEY, 16);}
 
 static osjob_t sendjob;
@@ -284,19 +282,8 @@ void onEvent (ev_t ev) {
         }
         Serial.println();
       }
-      // Disable link check validation (automatically enabled
-      // during join, but because slow data rates change max TX
-      // size, we don't use it in this example.
       LMIC_setLinkCheckMode(0);
     break;
-    /*
-    || This event is defined but not used in the code. No
-    || point in wasting codespace on it.
-    ||
-    || case EV_RFU1:
-    ||     Serial.println(F("EV_RFU1"));
-    ||     break;
-    */
     case EV_JOIN_FAILED:
       Serial.println(F("EV_JOIN_FAILED"));
     break;
@@ -331,27 +318,9 @@ void onEvent (ev_t ev) {
     case EV_LINK_ALIVE:
       Serial.println(F("EV_LINK_ALIVE"));
     break;
-    /*
-    || This event is defined but not used in the code. No
-    || point in wasting codespace on it.
-    ||
-    || case EV_SCAN_FOUND:
-    ||    Serial.println(F("EV_SCAN_FOUND"));
-    ||    break;
-    */
     case EV_TXSTART:
       Serial.println(F("EV_TXSTART"));
     break;
-    //        case EV_TXCANCELED:
-    //            Serial.println(F("EV_TXCANCELED"));
-    //            break;
-    //        case EV_RXSTART:
-    //            /* do not print anything -- it wrecks timing */
-    //            break;
-    //        case EV_JOIN_TXCOMPLETE:
-    //            Serial.println(F("EV_JOIN_TXCOMPLETE: no JoinAccept"));
-    //            break;
-    default:
       Serial.print(F("Unknown event: "));
       Serial.println((unsigned) ev);
     break;
@@ -435,12 +404,14 @@ void loop() {
   } 
 
   if(lastStatus){
+    
     if(millis() > lastPressedSwitch){
       if(!digitalRead(switchpin)){
         lastStatus=false;
         lastPressedSwitch=millis()+100; 
       }
     }
+
     else if(!digitalRead(switchpin)){
       if(++SensorWatching>maxSensorPin) SensorWatching=minSensorPin;
       display.drawString(0,3,"Sensor: ");
@@ -451,6 +422,7 @@ void loop() {
       lastStatus=false; 
     }
   }
+
   else if(digitalRead(switchpin) && millis() > lastPressedSwitch){ 
     Serial.print("display ...");
     lastStatus = true;
