@@ -59,7 +59,7 @@ const String hzvorlage= "Frequez: fhz";
 const String prozentvorlage = "Feuchtigkeit: p%";
 const String tempvorlage = "Temperatur: i^C";
 
-int maxWert[4] = {200,200,200,200};
+int maxWert[4] = {300,300,300,300};
 int minWert[4] = {0,0,0,0};
 int SensorWatching = minSensorPin;
 FlashStorage(maxWert_fs, Data);
@@ -410,10 +410,12 @@ void loop() {
         lastStatus=false;
         lastPressedSwitch=millis()+100; 
       }
+      else if(powerSaveMode) activateDisplay(DisplayZeit);
     }
 
     else if(!digitalRead(switchpin)){
       if(++SensorWatching>maxSensorPin) SensorWatching=minSensorPin;
+      activateDisplay(DisplayZeit);
       display.drawString(0,3,"Sensor: ");
       char buffer[2];
       String(SensorId).toCharArray(buffer,2,0); 
@@ -427,7 +429,6 @@ void loop() {
     Serial.print("display ...");
     lastStatus = true;
     lastPressedSwitch=millis()+500;
-    activateDisplay(DisplayZeit);
   }
 
   if(!powerSaveMode && millis() > displayTime){
