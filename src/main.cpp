@@ -25,15 +25,16 @@
 
 #define DisplayZeit 30
 
-typedef struct{
+struct Data{
   byte data[4];
-}Data;
+};
 
 // This EUI must be in little-endian format, so least-significant-byte
 // first. When copying an EUI from ttnctl output, this means to reverse
 // the bytes. For TTN issued EUIs the last bytes should be 0xD5, 0xB3,
 // 0x70.
 static const u1_t PROGMEM APPEUI[8]={ 0x00, 0x00,0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+const unsigned TX_INTERVAL = 60;
 void os_getArtEui (u1_t* buf) { memcpy_P(buf, APPEUI, 8);}
 
 // This should also be in little endian format, see above.
@@ -53,14 +54,13 @@ Adafruit_BME280 bme280;
 
 // Schedule TX every this many seconds (might become longer due to duty
 // cycle limitations).
-const unsigned TX_INTERVAL = 60;
 
 const String hzvorlage= "Frequez: fhz";
 const String prozentvorlage = "Feuchtigkeit: p%";
 const String tempvorlage = "Temperatur: i^C";
 
-int maxWert[4] = {300,300,300,300};
-int minWert[4] = {0,0,0,0};
+int maxWert[4] = {100,100,100,100};
+int minWert[4] = {10,10,10,10};
 int SensorWatching = minSensorPin;
 FlashStorage(maxWert_fs, Data);
 FlashStorage(minWert_fs, Data);
@@ -92,8 +92,8 @@ void writeData(FlashStorageClass<Data> fs, int *n, int minus){
 
 int frequenz(int pin){
   int start = micros();
-  int wechsel =0;
   int last = digitalRead(pin);
+  int wechsel =0;
   for(int i=0;i<100000;i++){
     int wert = digitalRead(pin);
     if(wert!=last){
@@ -168,14 +168,24 @@ void displayupdate(){
   display.drawTile(0,7,13,varu);
 }
 
+void activateDisplay(int sec){
+  if(powerSaveMode){
+    display.setPowerSave(0);
+    powerSaveMode = false;
+  }
+  displayTime=millis() + sec * 1000;
+  displayupdate();
+  Serial.println("display on");
+}
+
 void do_send(osjob_t* j){
   // Check if there is not a current TX/RX job running
   displayupdate();
   if (LMIC.opmode & OP_TXRXPEND) {
     Serial.println(F("OP_TXRXPEND, not sending"));
   } 
-  else {
     // Prepare upstream data transmission at the next possible time.
+  else {
     float vbat;
     
     float temperature = bme280.readTemperature();
@@ -188,26 +198,24 @@ void do_send(osjob_t* j){
     vbat *= 3.3;  // Multiply by 3.3V, our reference voltage
     vbat /= 1024; // convert to voltage
 
-    for (int i = 0;i+minSensorPin<maxSensorPin;i++){
-      int frequenzfeutigkeit = frequenz(i);
-      if(frequenzfeutigkeit!=0){
-        prozentfeuchtigkeit[i] = (1-(((double)frequenzfeutigkeit-minWert[i]))/(maxWert[i]-minWert[i]))*100;
-
-        String hz = hzvorlage; 
+    for (int i = 0;i+minSensorPin<=maxSensorPin;i++){
+      Serial.printf("---Sensor: %d------\n",i+minSensorPin);
+      int frequenzfeutigkeit = frequenz(i+minSensorPin);
+      if(frequenzfeutigkeit==0) prozentfeuchtigkeit[i] = 0;
+      else{
+        prozentfeuchtigkeit[i] = (1-(((double)frequenzfeutigkeit-minWert[i]))/(maxWert[i]-minWert[i]))*100; // Umwandlung von der Frequenz in Prozent
+        String hz = hzvorlage;
         hz.replace("f",String(frequenzfeutigkeit));
         String ps = prozentvorlage;
         ps.replace("p",String(prozentfeuchtigkeit[i]));
-
         Serial.println(hz);
         Serial.println(ps);
       }
-      
+      if(prozentfeuchtigkeit[i] < 0) prozentfeuchtigkeit[i]=1;
     }
-
-    
+      
     String ts = tempvorlage;
     ts.replace("i",String(temperature));
-
     Serial.println(ts);
     Serial.println("------------------");
     
@@ -225,10 +233,10 @@ void do_send(osjob_t* j){
     mydata[4] = t & 0xFF;
     mydata[5] = (p >> 8) & 0xFF;
     mydata[6] = p & 0xFF;
-    for(int i=0;i+minSensorPin<maxSensorPin;i++){
+    for(int i=0;i+minSensorPin<=maxSensorPin;i++){
       mydata[3*i+7] = (unsigned short)(minWert[i]) & 0xff;
       mydata[3*i+8] = (unsigned int)(maxWert[i] - 75) & 0xff;
-      mydata[3*i+9] = (unsigned int)(prozentfeuchtigkeit[i]) & 0xFF; 
+      mydata[3*i+9] = (unsigned int)(prozentfeuchtigkeit[i]) & 0xFF;
     }
     LMIC_setTxData2(5, mydata, sizeof(mydata), 0);
     Serial.println(F("Packet queued"));
@@ -358,7 +366,7 @@ void setup() {
   pinMode(switchpin,INPUT_PULLDOWN); 
   pinMode(maxpin,INPUT_PULLDOWN);
   pinMode(minpin,INPUT_PULLDOWN);
-  for (int i=minSensorPin; i<maxSensorPin; i++) pinMode(i,INPUT_PULLDOWN);
+  for (int i=minSensorPin; i<=maxSensorPin; i++) pinMode(i,INPUT_PULLDOWN);
 
   memset(leero,B00000001,sizeof(leero));
   memset(leeru,B10000000,sizeof(leeru));
@@ -369,21 +377,13 @@ void setup() {
   readData(maxWert_fs, maxWert, SUmformungMax);
   readData(minWert_fs, minWert, SUmformungMin);
   
-  displayTime = millis() + 15000;
-}
-
-void activateDisplay(int sec){
-  display.setPowerSave(0);
-  displayupdate();
-  displayTime=millis() + sec * 1000;
-  powerSaveMode = false;
-  Serial.println("display on");
+  activateDisplay(DisplayZeit);
 }
 
 void loop() {
   os_runloop_once();
 
-  if(digitalRead(maxpin) && millis() > lastsetmax){//set Frequenzy with most humidity
+  if(digitalRead(maxpin) && millis() > lastsetmax){//set Frequenz mit geringster Feuchtigkeit
     maxWert[SensorId] = frequenz(SensorWatching);
     writeData(maxWert_fs, maxWert, SUmformungMax);
     Serial.print("Max: ");
@@ -393,7 +393,7 @@ void loop() {
     lastsetmax = millis()+1000;
   }
 
-  if(digitalRead(minpin) && millis() > lastsetmin){//set Frequenz mit geringster Feuchtigkeit
+  if(digitalRead(minpin) && millis() > lastsetmin){//set Frequenz mit maximaler Feuchtigkeit
     minWert[SensorId] = frequenz(SensorWatching);
     writeData(minWert_fs, minWert, SUmformungMin);
     Serial.print("Min: ");
@@ -403,17 +403,16 @@ void loop() {
     lastsetmin = millis()+1000;
   } 
 
-  if(lastStatus){
-    
+  if(lastStatus){  
     if(millis() > lastPressedSwitch){
-      if(!digitalRead(switchpin)){
+      if(!digitalRead(switchpin)){ //activiert Display wieder
         lastStatus=false;
         lastPressedSwitch=millis()+100; 
       }
-      else if(powerSaveMode) activateDisplay(DisplayZeit);
+      else activateDisplay(DisplayZeit);
     }
 
-    else if(!digitalRead(switchpin)){
+    else if(!digitalRead(switchpin)){ //ändert angezeigten Sensor
       if(++SensorWatching>maxSensorPin) SensorWatching=minSensorPin;
       activateDisplay(DisplayZeit);
       display.drawString(0,3,"Sensor: ");
@@ -431,8 +430,8 @@ void loop() {
     lastPressedSwitch=millis()+500;
   }
 
-  if(!powerSaveMode && millis() > displayTime){
-    display.setPowerSave(1); //display off
+  if(!powerSaveMode && millis() > displayTime){ // schaltet Display nach bestimmter ZEit wieder aus
+    display.setPowerSave(1); 
     powerSaveMode = true;
     Serial.println("Display off");
   }
