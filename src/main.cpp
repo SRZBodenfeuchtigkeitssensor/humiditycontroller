@@ -9,6 +9,7 @@
 
 #define I2C_OLED_ADDR 0x3C     // 0x3C or 0x3D
 #define I2C_BME280_ADDR 0x76   // 0x76 or 0x77
+#define fport 5  
 
 #define VBATPIN A7
 
@@ -180,14 +181,13 @@ void activateDisplay(int sec){
 
 void do_send(osjob_t* j){
   // Check if there is not a current TX/RX job running
-  displayupdate();
+  activateDisplay(DisplayZeit); 
   if (LMIC.opmode & OP_TXRXPEND) {
     Serial.println(F("OP_TXRXPEND, not sending"));
   } 
-    // Prepare upstream data transmission at the next possible time.
+  // Prepare upstream data transmission at the next possible time.
   else {
     float vbat;
-    
     float temperature = bme280.readTemperature();
     float pressure = bme280.readPressure()/100.0f;
     float humidity = bme280.readHumidity();
@@ -238,7 +238,7 @@ void do_send(osjob_t* j){
       mydata[3*i+8] = (unsigned int)(maxWert[i] - 75) & 0xff;
       mydata[3*i+9] = (unsigned int)(prozentfeuchtigkeit[i]) & 0xFF;
     }
-    LMIC_setTxData2(5, mydata, sizeof(mydata), 0);
+    LMIC_setTxData2(fport, mydata, sizeof(mydata), 0);
     Serial.println(F("Packet queued"));
   }
   // Next TX is scheduled after TX_COMPLETE event.
@@ -435,4 +435,4 @@ void loop() {
     powerSaveMode = true;
     Serial.println("Display off");
   }
-} 
+}  
