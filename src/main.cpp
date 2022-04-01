@@ -21,7 +21,7 @@
 #define minSensorPin A0
 
 #define SensorId (SensorWatching-minSensorPin)
-#define SUmformungMax 75
+#define SUmformungMax 45
 #define SUmformungMin 0  
 
 #define DisplayZeit 30
@@ -56,7 +56,7 @@ Adafruit_BME280 bme280;
 // Schedule TX every this many seconds (might become longer due to duty
 // cycle limitations).
 
-const String hzvorlage= "Frequez: fhz";
+const String hzvorlage= "Frequenz: fhz";
 const String prozentvorlage = "Feuchtigkeit: p%";
 const String tempvorlage = "Temperatur: i^C";
 
@@ -200,12 +200,12 @@ void do_send(osjob_t* j){
 
     for (int i = 0;i+minSensorPin<=maxSensorPin;i++){
       Serial.printf("---Sensor: %d------\n",i+minSensorPin);
-      int frequenzfeutigkeit = frequenz(i+minSensorPin);
-      if(frequenzfeutigkeit==0) prozentfeuchtigkeit[i] = 0;
+      int frequenzfeuchtigkeit = frequenz(i+minSensorPin);
+      if(frequenzfeuchtigkeit==0) prozentfeuchtigkeit[i] = 0;
       else{
-        prozentfeuchtigkeit[i] = (1-(((double)frequenzfeutigkeit-minWert[i]))/(maxWert[i]-minWert[i]))*100; // Umwandlung von der Frequenz in Prozent
+        prozentfeuchtigkeit[i] = (1-(((double)frequenzfeuchtigkeit-minWert[i]))/(maxWert[i]-minWert[i]))*100; // Umwandlung von der Frequenz in Prozent
         String hz = hzvorlage;
-        hz.replace("f",String(frequenzfeutigkeit));
+        hz.replace("f",String(frequenzfeuchtigkeit));
         String ps = prozentvorlage;
         ps.replace("p",String(prozentfeuchtigkeit[i]));
         Serial.println(hz);
@@ -235,7 +235,7 @@ void do_send(osjob_t* j){
     mydata[6] = p & 0xFF;
     for(int i=0;i+minSensorPin<=maxSensorPin;i++){
       mydata[3*i+7] = (unsigned short)(minWert[i]) & 0xff;
-      mydata[3*i+8] = (unsigned int)(maxWert[i] - 75) & 0xff;
+      mydata[3*i+8] = (unsigned int)(maxWert[i] - SUmformungMax) & 0xff;
       mydata[3*i+9] = (unsigned int)(prozentfeuchtigkeit[i]) & 0xFF;
     }
     LMIC_setTxData2(fport, mydata, sizeof(mydata), 0);
@@ -244,7 +244,7 @@ void do_send(osjob_t* j){
   // Next TX is scheduled after TX_COMPLETE event.
 }
 
-void onEvent (ev_t ev) {
+void onEvent (ev_t ev) { // handelt Lorawan events 
   Serial.print(os_getTime());
   Serial.print(": ");
   switch(ev) {
@@ -430,7 +430,7 @@ void loop() {
     lastPressedSwitch=millis()+500;
   }
 
-  if(!powerSaveMode && millis() > displayTime){ // schaltet Display nach bestimmter ZEit wieder aus
+  if(!powerSaveMode && millis() > displayTime){ // schaltet Display nach bestimmter Zeit wieder aus
     display.setPowerSave(1); 
     powerSaveMode = true;
     Serial.println("Display off");
